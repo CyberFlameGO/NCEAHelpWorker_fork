@@ -5,6 +5,11 @@ compatibility_date="2023-05-18"
 [placement]
 mode = "smart"
 
+[[d1_databases]]
+binding = "DB" # i.e. available in your Worker on env.DB
+database_name = "nceahelp"
+database_id = "4bc415c2-d80d-49aa-99d5-296af12e1b64"
+
 # [secrets]
 # DISCORD_TOKEN
 # DISCORD_PUBLIC_KEY
