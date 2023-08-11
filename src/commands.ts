@@ -18,3 +18,16 @@ export const PING_COMMAND = {
   name: 'ping',
   description: 'Check latency stats of the bot.',
 };
+
+export const LOOKUP_COMMAND = {
+  name: 'lookup',
+  description: 'Get detailed information on a standard!',
+  options: [
+    {
+      type: 4,
+      name: 'standard_number',
+      description: 'Standard number to look up information for.',
+      required: true,
+    },
+  ],
+};
