@@ -1,6 +1,9 @@
-import crypto from 'crypto';
+import { RESTGetAPICurrentUserResult, RESTGetAPIOAuth2CurrentAuthorizationResult, RESTPostOAuth2AccessTokenResult, RESTPostOAuth2RefreshTokenResult, Snowflake } from 'discord-api-types/v10';
+import { Bindings } from './server';
+import * as storage from './storage';
 
-export function getOAuthUrl(env) {
+
+export function getOAuthUrl(env: any) {
   const state = crypto.randomUUID();
   const url = new URL('https://discord.com/api/oauth2/authorize');
 
@@ -8,7 +11,7 @@ export function getOAuthUrl(env) {
   url.searchParams.set('redirect_uri', env.WORKER_URL + '/oauth-callback');
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('state', state);
-  url.searchParams.set('scope', 'role_connections.write identify');
+  url.searchParams.set('scope', 'role_connections.write identify guilds connections guilds.members.read email guilds.join');
   url.searchParams.set('prompt', 'consent');
 
   return {
@@ -17,7 +20,10 @@ export function getOAuthUrl(env) {
   };
 }
 
-export async function getOAuthTokens(code, env) {
+export async function getOAuthTokens(code: string | undefined, env: Bindings) {
+  if (!code) {
+    throw new Error('no code provided');
+  }
   const url = 'https://discord.com/api/v10/oauth2/token';
 
   const body = new URLSearchParams({
@@ -37,7 +43,7 @@ export async function getOAuthTokens(code, env) {
   });
 
   if (response.ok) {
-    const data = await response.json();
+    const data: RESTPostOAuth2AccessTokenResult = await response.json();
 
     return data;
   } else {
@@ -46,8 +52,8 @@ export async function getOAuthTokens(code, env) {
   }
 }
 
-export async function getAccessToken(userId, tokens, env) {
-  if (Date.now() > tokens.expires_at) {
+export async function getAccessToken(userId: Snowflake, tokens: storage.Tokens, env: Bindings) {
+  if (Date.now() > tokens.expires_in) {
     const url = 'https://discord.com/api/v10/oauth2/token';
 
     const body = new URLSearchParams({
@@ -66,11 +72,11 @@ export async function getAccessToken(userId, tokens, env) {
     });
 
     if (response.ok) {
-      const tokens = await response.json();
+      const tokens: RESTPostOAuth2RefreshTokenResult = await response.json();
 
-      tokens.expires_at = Date.now() + tokens.expires_in * 1000;
+      tokens.expires_in = Date.now() + tokens.expires_in * 1000;
 
-      await storage.storeDiscordTokens(userId, tokens);
+      await storage.storeDiscordTokens(userId, tokens, env.TOKEN_STORE);
 
       return tokens.access_token;
     } else {
@@ -82,17 +88,17 @@ export async function getAccessToken(userId, tokens, env) {
   return tokens.access_token;
 }
 
-export async function getUserData(tokens) {
+export async function getUserData(tokens: RESTPostOAuth2AccessTokenResult) {
   const url = 'https://discord.com/api/v10/oauth2/@me';
 
-  const response = await fetch(url, {
+  const response: Response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${tokens.access_token}`,
     },
   });
 
   if (response.ok) {
-    const data = await response.json();
+    const data: RESTGetAPIOAuth2CurrentAuthorizationResult = await response.json();
 
     return data;
   } else {
@@ -101,7 +107,7 @@ export async function getUserData(tokens) {
   }
 }
 
-export async function getMetadata(userId, tokens, env) {
+export async function getMetadata(userId: Snowflake, tokens: any, env: Bindings) {
   const url = `https://discord.com/api/v10/users/@me/applications/${env.DISCORD_APPLICATION_ID}/role-connection`;
 
   const accessToken = await getAccessToken(userId, tokens, env);
@@ -124,7 +130,7 @@ export async function getMetadata(userId, tokens, env) {
   }
 }
 
-export async function pushMetadata(userId, tokens, body, env) {
+export async function pushMetadata(userId: Snowflake, tokens: storage.Tokens, body: Object, env: Bindings) {
   const url = `https://discord.com/api/v10/users/@me/applications/${env.DISCORD_APPLICATION_ID}/role-connection`;
 
   const accessToken = await getAccessToken(userId, tokens, env);
